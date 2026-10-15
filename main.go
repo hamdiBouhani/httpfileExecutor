@@ -14,19 +14,9 @@ import (
 )
 
 // applyAuth sets the Authorization header based on X-Auth-Type.
-//
-// Supported values (read from the request headers):
-//   - "bearer"  -> uses X-Auth-Token header value
-//   - "basic"   -> uses X-Auth-User + X-Auth-Pass header values
-//   - "oauth2"  -> uses OAUTH_CLIENT_ID / OAUTH_CLIENT_SECRET / OAUTH_TOKEN_URL env vars
-//   - (omitted) -> sends request as-is (whatever Authorization header is already set)
-//
-// Returns (client, nil) for oauth2, (nil, nil) otherwise.
-// The caller uses the returned client if non-nil.
+// Returns a custom *http.Client for OAuth2, or nil for other cases.
 func applyAuth(req *http.Request) (*http.Client, error) {
 	authType := strings.ToLower(req.Header.Get("X-Auth-Type"))
-
-	// Always strip our custom helper headers before sending
 	req.Header.Del("X-Auth-Type")
 
 	switch authType {
@@ -61,8 +51,8 @@ func applyAuth(req *http.Request) (*http.Client, error) {
 }
 
 // executeRequest builds, authenticates, and sends a single HTTP request.
-func executeRequest(req *httpfile.HTTPRequest) (*http.Response, error) {
-	vars := map[string]string{} // add substitutions here if needed
+func executeRequest(client *http.Client, req *httpfile.HTTPRequest) (*http.Response, error) {
+	vars := map[string]string{}
 
 	httpReq, err := http.NewRequest(
 		req.Method,
@@ -77,9 +67,12 @@ func executeRequest(req *httpfile.HTTPRequest) (*http.Response, error) {
 		httpReq.Header.Set(key, val)
 	}
 
-	client, err := applyAuth(httpReq)
+	authClient, err := applyAuth(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("apply auth: %w", err)
+	}
+	if authClient != nil {
+		client = authClient
 	}
 	if client == nil {
 		client = http.DefaultClient
@@ -107,7 +100,7 @@ func main() {
 		}
 		fmt.Printf("\n=== %s ===\n", name)
 
-		resp, err := executeRequest(req)
+		resp, err := executeRequest(nil, req) // ← pass nil here
 		if err != nil {
 			fmt.Printf("❌ Request failed: %v\n", err)
 			continue

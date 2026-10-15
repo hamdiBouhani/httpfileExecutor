@@ -47,7 +47,7 @@ deps: ## Download/tidy dependencies
 # Run
 # =============================================================================
 .PHONY: run
-run: ## Run the app with env vars (default creds used unless overridden)
+run: ## Run the app with env vars
 	OAUTH_CLIENT_ID="$(OAUTH_CLIENT_ID)" \
 	OAUTH_CLIENT_SECRET="$(OAUTH_CLIENT_SECRET)" \
 	OAUTH_TOKEN_URL="$(OAUTH_TOKEN_URL)" \
@@ -56,22 +56,31 @@ run: ## Run the app with env vars (default creds used unless overridden)
 	$(GO) run $(MAIN_FILE)
 
 # =============================================================================
-# Build
+# Test
 # =============================================================================
-.PHONY: build
-build: ## Build the binary into ./bin
-	@mkdir -p bin
-	$(GO) build -o bin/$(BINARY_NAME) $(MAIN_FILE)
-	@echo "✅ Built bin/$(BINARY_NAME)"
+.PHONY: test
+test: ## Run all tests (verbose)
+	$(GO) test -v ./...
 
-.PHONY: build-run
-build-run: build ## Build then run the compiled binary
-	OAUTH_CLIENT_ID="$(OAUTH_CLIENT_ID)" \
-	OAUTH_CLIENT_SECRET="$(OAUTH_CLIENT_SECRET)" \
-	OAUTH_TOKEN_URL="$(OAUTH_TOKEN_URL)" \
-	API_TOKEN="$(API_TOKEN)" \
-	HTTP_FILE="$(HTTP_FILE)" \
-	./bin/$(BINARY_NAME)
+.PHONY: test-short
+test-short: ## Run tests in short mode (skips long-running ones)
+	$(GO) test -short ./...
+
+.PHONY: test-race
+test-race: ## Run tests with the race detector
+	$(GO) test -v -race ./...
+
+.PHONY: test-cover
+test-cover: ## Run tests with coverage report (HTML)
+	@mkdir -p coverage
+	$(GO) test -v -coverprofile=coverage/coverage.out -covermode=atomic ./...
+	$(GO) tool cover -html=coverage/coverage.out -o coverage/coverage.html
+	@echo "✅ Coverage report: coverage/coverage.html"
+
+.PHONY: test-clean
+test-clean: ## Clear Go test cache
+	$(GO) clean -testcache
+	@echo "✅ Test cache cleared"
 
 # =============================================================================
 # Quality
@@ -88,8 +97,16 @@ vet: ## Run go vet
 tidy: ## Tidy go.mod / go.sum
 	$(GO) mod tidy
 
+.PHONY: check
+check: fmt vet test ## Run fmt, vet, and tests
+
+
+
+# =============================================================================
+# Cleanup
+# =============================================================================
 .PHONY: clean
-clean: ## Remove build artifacts
-	rm -rf bin/
+clean: ## Remove build artifacts and coverage
+	rm -rf bin/ coverage/
 	$(GO) clean -cache -testcache 2>/dev/null || true
 	@echo "✅ Cleaned"
