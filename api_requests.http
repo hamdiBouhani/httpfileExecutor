@@ -1,0 +1,17 @@
+### 1. Bearer token
+GET https://httpbin.org/bearer
+X-Auth-Type: bearer
+X-Auth-Token: my-secret-bearer-token
+
+### 2. Basic auth
+GET https://httpbin.org/basic-auth/alice/secret
+X-Auth-Type: basic
+X-Auth-User: alice
+X-Auth-Pass: secret
+
+### 3. OAuth2 (needs env vars set)
+GET https://httpbin.org/get
+X-Auth-Type: oauth2
+
+### 4. No auth
+GET https://httpbin.org/get
